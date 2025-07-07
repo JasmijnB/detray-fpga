@@ -5,4 +5,5 @@ detray-install
 .cache
 compile_commands.json
 Session.vim
+**/build
 
