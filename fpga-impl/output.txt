@@ -1,0 +1,1 @@
+g++ -std=c++17 -g -Wall -O3 -I/home/jbookelm/.local/include -I/opt/xilinx/xrt/include -I./src -c src/host.cpp -o src/host.o

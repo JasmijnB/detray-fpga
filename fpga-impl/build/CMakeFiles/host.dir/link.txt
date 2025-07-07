@@ -1,0 +1,1 @@
+/usr/bin/c++ CMakeFiles/host.dir/src/host.cpp.o -o host   -L/opt/xilinx/xrt/lib  -Wl,-rpath,/opt/xilinx/xrt/lib:/home/jbookelm/fpga_detray/detray-install/lib64 /usr/lib64/libOpenCL.so -lxrt_coreutil /home/jbookelm/fpga_detray/detray-install/lib64/libvecmem_core.so.1.13.0 

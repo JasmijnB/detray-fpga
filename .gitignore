@@ -1,6 +1,8 @@
 detray
 detray-build
+detray-install
 .direnv
 .cache
 compile_commands.json
+Session.vim
 
