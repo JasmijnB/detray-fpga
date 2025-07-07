@@ -1,3 +1,0 @@
-/home/jbookelm/fpga_detray/fpga-impl/build/CMakeFiles/host.dir
-/home/jbookelm/fpga_detray/fpga-impl/build/CMakeFiles/edit_cache.dir
-/home/jbookelm/fpga_detray/fpga-impl/build/CMakeFiles/rebuild_cache.dir
