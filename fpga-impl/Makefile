@@ -32,6 +32,7 @@ SRC_DIR := ./src
 SYNTH_OUTPUT := ${WORK_DIR}/kernel_main.xo
 
 COMMON_OPTIONS :=  --config ${HLS_CONFIG} --work_dir ${WORK_DIR}
+V_INCLUDE_FLAGS := -I /home/jbookelm/fpga_detray/detray-install-default/include
 
 KERNEL_XCLBIN := kernel_main.xclbin
 HW_EMU_XCLBIN := ${WORK_DIR}/hw_emu/${KERNEL_XCLBIN}
@@ -39,7 +40,7 @@ HW_EMU_XCLBIN := ${WORK_DIR}/hw_emu/${KERNEL_XCLBIN}
 all: csim csynth ;#cosim
 
 csynth ${SYNTH_OUTPUT}: ${SRC_DIR}/kernel.cpp ${SRC_DIR}/shared.h
-	v++ --compile  --mode hls --platform=${PLATFORM} ${COMMON_OPTIONS}
+	v++ --compile  --mode hls  --platform=${PLATFORM} ${COMMON_OPTIONS} 
 
 csim: clean # clean before csim !
 csim cosim: 
@@ -57,7 +58,7 @@ HOST_OUTPUT := ${WORK_DIR}/host
 
 XILINX_XRT := $(XILINX_XRT)
 
-INCLUDES := -I$(XILINX_XRT)/include -I${SRC_DIR} -I${DETRAY_INSTALL}/include
+INCLUDES := -I$(XILINX_XRT)/include -I${SRC_DIR} -isystem /home/jbookelm/fpga_detray/detray-install/include
 LDFLAGS := -L$(XILINX_XRT)/lib  -L${DETRAY_INSTALL}/lib64
 LDLIBS := -lxrt_coreutil -lOpenCL -lvecmem_core -lvecmem_hip
 
@@ -74,9 +75,18 @@ $(HOST_OUTPUT): $(OBJS)
 
 # ===[ Other helpers]===
 .PHONY: run_hw_emu
-run_hw_emu: host
-	pushd ${WORK_DIR} && XCL_EMULATION_MODE=hw_emu ./host ${HW_EMU_XCLBIN}&& popd
+run_hw_emu: 
+	pushd ${WORK_DIR} && XCL_EMULATION_MODE=hw_emu ./host ./hw_emu/kernel_main.xclbin && popd
 
 .PHONY: clean
 clean:
 	rm -rf ${WORK_DIR} *.log _x .Xil
+
+.PHONY: kernel
+kernel:
+	v++ -I/home/jbookelm/fpga_detray/detray-install/include \
+		-k kernel_main \
+		--platform ${PLATFORM} \
+		-DDETRAY_ALGEBRA_ARRAY \
+		-DDETRAY_CUSTOM_SCALARTYPE=float \
+		src/kernel.cpp -o kernel.xo

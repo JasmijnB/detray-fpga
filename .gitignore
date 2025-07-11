@@ -1,9 +1,12 @@
 detray
-detray-build
-detray-install
+vecmem
+detray-build*
+detray-install*
 .direnv
 .cache
 compile_commands.json
 Session.vim
 **/build
+*.log
+*.compile_summary
 
