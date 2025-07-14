@@ -1,0 +1,13 @@
+---
+MainSourceFile:  /home/jbookelm/fpga_detray/fpga-impl/_x/kernel/kernel_main/kernel_main/solution/.autopilot/db/kernel.pp.0.cpp
+Diagnostics:     
+  - DiagnosticName:  xilinx-label-all-loops
+    Message:         'Added loop label VITIS_LOOP_10_1:  '
+    FileOffset:      10
+    FilePath:        /home/jbookelm/fpga_detray/fpga-impl/src/kernel.cpp
+    Replacements:    
+      - FilePath:        /home/jbookelm/fpga_detray/fpga-impl/_x/kernel/kernel_main/kernel_main/solution/.autopilot/db/kernel.pp.0.cpp
+        Offset:          766521
+        Length:          0
+        ReplacementText: 'VITIS_LOOP_10_1: '
+...

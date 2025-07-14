@@ -1,0 +1,5 @@
+kernel_main_flow_control_loop_pipe_sequential_init
+kernel_main_gmem_m_axi
+kernel_main_control_s_axi
+kernel_main_Pipeline_VITIS_LOOP_10_1
+kernel_main

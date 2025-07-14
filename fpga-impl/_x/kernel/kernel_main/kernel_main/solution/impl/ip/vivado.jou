@@ -1,0 +1,24 @@
+#-----------------------------------------------------------
+# Vivado v2025.1 (64-bit)
+# SW Build 6140274 on Wed May 21 22:58:25 MDT 2025
+# IP Build 6138677 on Thu May 22 03:10:11 MDT 2025
+# SharedData Build 6139179 on Tue May 20 17:58:58 MDT 2025
+# Start of session at: Mon Jul 14 10:25:31 2025
+# Process ID         : 3436607
+# Current directory  : /home/jbookelm/fpga_detray/fpga-impl/_x/kernel/kernel_main/kernel_main/solution/impl/ip
+# Command line       : vivado -notrace -mode batch -source run_ippack.tcl
+# Log file           : /home/jbookelm/fpga_detray/fpga-impl/_x/kernel/kernel_main/kernel_main/solution/impl/ip/vivado.log
+# Journal file       : /home/jbookelm/fpga_detray/fpga-impl/_x/kernel/kernel_main/kernel_main/solution/impl/ip/vivado.jou
+# Running On         : at-tdaq-mldev03
+# Platform           : unknown
+# Operating System   : unknown
+# Processor Detail   : Intel(R) Xeon(R) CPU E5-2620 v3 @ 2.40GHz
+# CPU Frequency      : 1200.003 MHz
+# CPU Physical cores : 12
+# CPU Logical cores  : 24
+# Host memory        : 109143 MB
+# Swap memory        : 16856 MB
+# Total Virtual      : 126000 MB
+# Available Virtual  : 117839 MB
+#-----------------------------------------------------------
+source run_ippack.tcl -notrace
