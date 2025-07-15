@@ -1,6 +1,0 @@
-
-Family       : virtexuplushbm
-Device       : xcu50
-Package      : -fsvh2104
-Speed Grade  : -2-e
-Clock Period : 3.333
