@@ -12,7 +12,6 @@
 #endif
 
 #define CL_TARGET_OPENCL_VERSION 120
-
 // Project include(s)
 #include "detray/builders/cuboid_portal_generator.hpp"
 #include "detray/builders/surface_factory.hpp"
@@ -23,6 +22,8 @@
 #include "detray/detectors/build_toy_detector.hpp"
 #include "detray/io/frontend/detector_writer.hpp"
 #include "detray/navigation/volume_graph.hpp"
+#include "detray/geometry/shapes/rectangle2D.hpp"
+
 
 // Example include(s)
 #include "detray/tutorial/detector_metadata.hpp"
@@ -37,7 +38,6 @@
 #include <vecmem/utils/vitis/copy.hpp>
 #include <vecmem/utils/xcl2.hpp>
 
-
 // System include(s)
 #include "xrt/xrt_bo.h"
 #include "xrt/xrt_device.h"
@@ -47,107 +47,70 @@ typedef uint32_t size_type;
 typedef uint8_t data_t;
 #define DATA_SIZE 12
 
-auto generate_data() {
+using detector_host_t = detray::detector<detray::tutorial::my_metadata, detray::host_container_types>;
+using detector_device_t =
+    detray::detector<detray::tutorial::my_metadata, detray::device_container_types>;
+using mask_id = typename detector_host_t::masks::id;
+using acc_id = typename detector_host_t::accel::id;
+
+auto build_detector(vecmem::host_memory_resource &host_mr) {
     // The new detector type
-    using detector_t = detray::detector<detray::tutorial::my_metadata>;
 
     // First, create an empty detector in in host memory to be filled
-    vecmem::host_memory_resource host_mr;
-    detector_t det{host_mr};
-
-    detray::toy_det_config toy_cfg{};
-    // Number of barrel layers (0 - 4)
-    toy_cfg.n_brl_layers(4u);
-    // Number of endcap layers on either side (0 - 7)
-    // Note: The detector must be configured with 4 barrel layers to be able to
-    // add any encap layers
-    toy_cfg.n_edc_layers(1u);
+    detector_host_t det{host_mr};
 
     // Now fill the detector
-    return detray::build_toy_detector(host_mr, toy_cfg);
+
+    // Get a generic volume builder first and decorate it later
+    detray::volume_builder<detector_host_t> vbuilder{detray::volume_id::e_cuboid};
+
+    // Fill some squares into the volume
+    using square_factory_t =
+        detray::surface_factory<detector_host_t, detray::tutorial::square2D>;
+    auto sq_factory = std::make_shared<square_factory_t>();
+
+    // Add some programmatically generated square surfaces
+    auto sq_generator =
+        std::make_shared<detray::tutorial::square_surface_generator>(
+            10, 10.f * detray::unit<detray::scalar>::mm);
+
+    // Add a portal box around the cuboid volume with a min distance of 'env'
+    constexpr auto env{0.1f * detray::unit<detray::scalar>::mm};
+    auto portal_generator =
+        std::make_shared<detray::cuboid_portal_generator<detector_host_t>>(env);
+
+    // Add surfaces to volume and add the volume to the detector
+    vbuilder.add_surfaces(sq_factory);
+    vbuilder.add_surfaces(sq_generator);
+    vbuilder.add_surfaces(portal_generator);
+
+    vbuilder.build(det);
+    return det;
 }
 
+void print_kernel(typename detector_host_t::view_type det_data) {
+    // Setup of the device-side detector
+    detector_device_t det(det_data);
 
-void load_detector(cl_device_id device,
-                const std::string &binaryFile,
-                std::vector<data_t> &out,
-                size_t data_size) {
-    cl_int err;
-    size_t vector_size_bytes = data_size * sizeof(int);
+    printf("Number of volumes: %d\n", det.volumes().size());
+    printf("Number of transforms: %d\n", det.transform_store().size());
 
-    // Load xclbin
-    std::vector<unsigned char> fileBuf = xcl::read_binary_file(binaryFile);
-    const unsigned char* binary = fileBuf.data();
-    size_t binary_size = fileBuf.size();
-
-    // Create context and queue
-    cl_context context = clCreateContext(nullptr, 1, &device, nullptr, nullptr, &err);
-    OCL_CHECK(err, );
-
-    cl_command_queue q = clCreateCommandQueue(context, device, 0, &err);
-    OCL_CHECK(err, );
-
-    // Program FPGA with binary
-    OCL_CHECK(err, cl_program program = clCreateProgramWithBinary(context, 1, &device,
-                                                   &binary_size, &binary,
-                                                   nullptr, &err));
-
-
-    err = clBuildProgram(program, 1, &device, nullptr, nullptr, nullptr);
-    if (err != CL_SUCCESS) {
-        std::cerr << "Failed to program device with xclbin file!" << std::endl;
-        std::exit(EXIT_FAILURE);
-    }
-    std::cout << "Device: program successful!" << std::endl;
-
-    // Create kernel
-    cl_kernel kernel = clCreateKernel(program, "kernel_main", &err);
-    OCL_CHECK(err, );
-
-    vecmem::host_memory_resource host_mr;
-    vecmem::vitis::device_memory_resource dev_mr (context, device, kernel, CL_MEM_READ_WRITE);
-    vecmem::vitis::host_memory_resource dev_host_mr;
-    vecmem::vitis::copy vitis_cpy;
-
-    auto [det_mng, names_mng] = detray::build_toy_detector(host_mr);
-    // load the detector data into the device memory as first buffer
-    auto det_fixed_buff = detray::get_buffer(det_mng, dev_mr, vitis_cpy);
-
-    OCL_CHECK(err, cl_mem buffer_out = clCreateBuffer(context, CL_MEM_WRITE_ONLY,
-                                       vector_size_bytes, nullptr, &err));
-
-    // Set kernel arguments
-    int argc = 1;
-    OCL_CHECK(err, err = clSetKernelArg(kernel, argc++, sizeof(cl_mem), &buffer_out));
-    OCL_CHECK(err, err = clSetKernelArg(kernel, argc++, sizeof(size_type), &data_size));
-
-
-    // Write input buffer
-//    OCL_CHECK(err, err = clEnqueueWriteBuffer(q, buffer_in, CL_TRUE, 0,
-//                                              vector_size_bytes, in.data(), 0, nullptr, nullptr));
-
-    // Run kernel
-    cl_event kernel_event;
-    OCL_CHECK(err, err = clEnqueueTask(q, kernel, 0, nullptr, &kernel_event));
-
-    // Wait for completion
-    clWaitForEvents(1, &kernel_event);
-    clReleaseEvent(kernel_event);
-
-    // Read output buffer
-    OCL_CHECK(err, err = clEnqueueReadBuffer(q, buffer_out, CL_TRUE, 0,
-                                             vector_size_bytes, out.data(), 0, nullptr, nullptr));
-
-    clFinish(q);
-
-    // Cleanup
-    // TODO: Fix cleanup not working :( (free errors)
-//    clReleaseMemObject(buffer_in);
-//    clReleaseMemObject(buffer_out);
-//    clReleaseKernel(kernel);
-//    clReleaseProgram(program);
-//    clReleaseCommandQueue(q);
-//    clReleaseContext(context);
+    /*
+    printf("Number of rectangles: %d\n",
+           det.mask_store().get<mask_id::e_rectangle2>().size());
+    printf("Number of trapezoids: %d\n",
+           det.mask_store().get<mask_id::e_trapezoid2>().size());
+    printf("Number of portal discs: %d\n",
+           det.mask_store().get<mask_id::e_portal_ring2>().size());
+    printf("Number of portal cylinders: %d\n",
+           det.mask_store().get<mask_id::e_portal_cylinder2>().size());
+    printf("Number of portal collections: %d\n",
+           det.accelerator_store().get<acc_id::e_brute_force>().size());
+    printf("Number of disc grids: %d\n",
+           det.accelerator_store().get<acc_id::e_disc_grid>().size());
+    printf("Number of cylinder grids: %d\n",
+           det.accelerator_store().get<acc_id::e_cylinder2_grid>().size());
+           */
 }
 
 
@@ -165,78 +128,66 @@ int main(int argc, char** argv) {
     size_type vector_size_bytes = sizeof(data_t) * data_size;
 
     std::vector<data_t> out(data_size);
-
     int device_index = 0;
     std::cout << "Open the device" << device_index << std::endl;
     auto device = xrt::device(device_index);
     std::cout << "Load the xclbin " << binaryFile << std::endl;
     auto uuid = device.load_xclbin(binaryFile);
 
-    data_t size_in_bytes = DATA_SIZE * sizeof(data_t);
 
     auto krnl = xrt::kernel(device, uuid, "kernel_main");
 
     std::cout << "Allocate Buffer in Global Memory\n";
+    // randomly choose a big number
+    constexpr std::uint32_t size_in_bytes = 1024 * 1024;
+    std::uint8_t data_in[size_in_bytes];
+    std::uint8_t data_out[size_in_bytes];
 
-    xrt::bo::flags device_flags = xrt::bo::flags::device_only;
-    auto bo_a = xrt::bo(device, size_in_bytes, device_flags, krnl.group_id(0));
-    auto bo_b = xrt::bo(device, size_in_bytes, device_flags, krnl.group_id(0));
-    auto bo_out = xrt::bo(device, size_in_bytes, device_flags, krnl.group_id(1));
-    
-    std::cout << "bo a address: " << bo_a.address() << std::endl;
-    std::cout << "bo b address: " << bo_b.address() << std::endl;
+
+    vecmem::host_memory_resource host_mr;
+
+    auto det_mng = build_detector(host_mr);
+//    const auto [det_mng, names] = detray::build_toy_detector(host_mr);
+    vecmem::vitis::device_memory_resource dev_mr(data_in, size_in_bytes);
+    vecmem::vitis::copy vitis_cpy(data_in);
+    // load the detector data into the device memory as first buffer
+    auto det_fixed_buff = detray::get_buffer(det_mng, dev_mr, vitis_cpy);
+    std::cout << "got the buffer!" << std::endl;
+
+    auto host_view = detray::get_data(det_fixed_buff);
+    print_kernel(host_view);
+    std::cout << "host view size: " << sizeof(host_view) << std::endl ;
+
+    std::cout << "Allocate Buffer in Global Memory\n";
+    auto bo_in = xrt::bo(device, size_in_bytes, krnl.group_id(0));
+    auto bo_out = xrt::bo(device, size_in_bytes, krnl.group_id(1));
+
+    std::cout << "bo in address: " << bo_in.address() << std::endl;
     std::cout << "out address: " << bo_out.address() << std::endl;
 
-    data_t data_in[DATA_SIZE];
-    for (data_t i = 0; i < DATA_SIZE; ++i) {
-        data_in[i] = i;
-    }
-
-    bo_a.write(data_in, size_in_bytes, 0);
-
-    /*
-    // Map the contents of the buffer object into host memory
-    auto bo_a_map = bo_a.map<data_t*>();
-    auto bo_b_map = bo_b.map<data_t*>();
-    auto bo_out_map = bo_out.map<data_t*>();
-    std::fill(bo_a_map, bo_a_map + DATA_SIZE, 0);
-    std::fill(bo_out_map, bo_out_map + DATA_SIZE, 0);
-    */
-
-    /*
-    // Create the test data
-    data_t bufReference[DATA_SIZE];
-    for (data_t i = 0; i < DATA_SIZE; ++i) {
-        bo_a_map[i] = 12;
-        bo_b_map[0] = i * 10;
-        bufReference[i] = i;
-    }
-    */
-
-    /*
-    // Synchronize buffer content with device side
-    std::cout << "synchronize input buffer data to device global memory\n";
-    bo_a.sync(XCL_BO_SYNC_BO_TO_DEVICE);
-    bo_b.sync(XCL_BO_SYNC_BO_TO_DEVICE);
-    */
+    bo_in.write(data_in, size_in_bytes, 0);
+    bo_in.sync(XCL_BO_SYNC_BO_TO_DEVICE);
 
     std::cout << "Execution of the kernel\n";
-    auto run = krnl(bo_a, bo_out, DATA_SIZE);
+    auto run = krnl(bo_in, bo_out, size_in_bytes);
     run.wait();
 
-    // Get the output;
-    std::cout << "Get the output data from the device" << std::endl;
-    data_t data_out[DATA_SIZE];
-    bo_out.read(data_out, size_in_bytes, 0);
+    std::cout << "Synchronize the output buffer data from the device" << std::endl;
+    bo_out.sync(XCL_BO_SYNC_BO_FROM_DEVICE);
+
+    std::cout << "Read the output data\n";
+    bo_out.read(data_out);
+
 
     // Validate our results
-    /*
-    if (std::memcmp(bo_out_map, bufReference, DATA_SIZE))
+    if (std::memcmp(data_in, data_out, size_in_bytes) != 0)
         throw std::runtime_error("Value read back does not match reference");
-        */
-    for (size_type i = 0; i < DATA_SIZE; ++i) {
+
+    /*
+    for (size_type i = 0; i < size_in_bytes; ++i) {
         std::cout << "Output data[" << i << "] = " << static_cast<int>(data_out[i]) << std::endl;
     }
+    */
 
     std::cout << "TEST PASSED\n";
     return 0;

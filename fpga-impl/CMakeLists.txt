@@ -31,7 +31,7 @@ set(XRT_LIBS xrt_coreutil)
 # ${CMAKE_MODULE_PATH}
 #)
 
-# include_directories(include)
+include_directories(include)
 
 # find_package(Vitis REQUIRED)
 

@@ -51,7 +51,7 @@ link_hw_emu ${HW_EMU_XCLBIN}: ${SYNTH_OUTPUT}
 
 # ===[ Host ]===	
 CXX := g++
-CXXFLAGS := -std=c++20 -g -Wall -O1 
+CXXFLAGS := -std=c++ -g -Wall -O1 
 
 HOST_FILE := ${SRC_DIR}/host.cpp
 HOST_OUTPUT := ${WORK_DIR}/host
@@ -76,17 +76,25 @@ $(HOST_OUTPUT): $(OBJS)
 # ===[ Other helpers]===
 .PHONY: run_hw_emu
 run_hw_emu: 
-	pushd ${WORK_DIR} && XCL_EMULATION_MODE=hw_emu ./host ./hw_emu/kernel_main.xclbin && popd
+	pushd ${WORK_DIR} && XCL_EMULATION_MODE=hw_emu ./host ./hw_emu/copy/kernel_main.xclbin && popd
 
 .PHONY: clean
 clean:
 	rm -rf ${WORK_DIR} *.log _x .Xil
 
+KERNEL_C_ARGS := -DDETRAY_COMPILE_VITIS \
+				-DDETRAY_ALGEBRA_ARRAY \
+				-DDETRAY_CUSTOM_SCALARTYPE=float \
+				-I./include \
+				-I/home/jbookelm/fpga_detray/detray-install-vitis/include \
+
 .PHONY: kernel
-kernel:
-	v++ -I/home/jbookelm/fpga_detray/detray-install/include \
+kernel: src/kernel.cpp
+	v++ \
+		$(KERNEL_C_ARGS) \
 		-k kernel_main \
 		--platform ${PLATFORM} \
-		-DDETRAY_ALGEBRA_ARRAY \
-		-DDETRAY_CUSTOM_SCALARTYPE=float \
 		src/kernel.cpp -o kernel.xo
+
+kernel_as_c:  src/kernel.cpp
+	g++ $(KERNEL_C_ARGS) src/kernel.cpp -o kernel_as_c
