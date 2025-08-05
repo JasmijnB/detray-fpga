@@ -156,17 +156,21 @@ int main(int argc, char** argv) {
 
     auto host_view = detray::get_data(det_fixed_buff);
     print_kernel(host_view);
-    std::cout << "host view size: " << sizeof(host_view) << std::endl ;
 
     std::cout << "Allocate Buffer in Global Memory\n";
-    auto bo_in = xrt::bo(device, size_in_bytes, krnl.group_id(0));
-    auto bo_out = xrt::bo(device, size_in_bytes, krnl.group_id(1));
+    int args = 0;
+    auto bo_in = xrt::bo(device, size_in_bytes, krnl.group_id(args++));
+    auto bo_host_view = xrt::bo(device, size_in_bytes, krnl.group_id(args++));
+    auto bo_out = xrt::bo(device, size_in_bytes, krnl.group_id(args++));
 
     std::cout << "bo in address: " << bo_in.address() << std::endl;
+    std::cout << "bo host view address: " << bo_host_view.address() << std::endl;
     std::cout << "out address: " << bo_out.address() << std::endl;
 
     bo_in.write(data_in, size_in_bytes, 0);
+    bo_host_view.write(&host_view, sizeof(host_view), 0);
     bo_in.sync(XCL_BO_SYNC_BO_TO_DEVICE);
+    bo_host_view.sync(XCL_BO_SYNC_BO_TO_DEVICE);
 
     std::cout << "Execution of the kernel\n";
     auto run = krnl(bo_in, bo_out, size_in_bytes);
