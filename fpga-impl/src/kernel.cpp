@@ -41,17 +41,19 @@ void print_kernel(typename detector_host_t::view_type det_data) {
 // using detector_device_t =
 //     detector<detray::toy_metadata, device_container_types>;
 extern "C" {
-void kernel_main(uint8_t * data, uint8_t * host_view_data, uint8_t * n_transforms) {
-    constexpr std::size_t h_view_type_size = sizeof(detector_host_t::view_type);
-    uint8_t local_host_view_data[h_view_type_size];
-    for (int i = 0; i < h_view_type_size; i++) {
-        local_host_view_data[i] = host_view_data[i];
+void kernel_main(uint8_t * data, uint8_t * detector_data, uint8_t * n_transforms) {
+    constexpr std::size_t detector_size = sizeof(detector_device_t);
+    uint8_t local_detector_data[sizeof(detector_device_t)];
+    for (int i = 0; i < detector_size; i++) {
+        local_detector_data[i] = detector_data[i];
     }
-    detector_host_t::view_type host_view = * (detector_device_t *) local_host_view_data;
-//    detector_device_t det(host_view);
+    const detector_device_t& det = *reinterpret_cast<detector_device_t*>(local_detector_data);
+    printf("Number of volumes: %d\n", det.volumes().size());
+    printf("Number of transforms: %d\n", det.transform_store().size());
     n_transforms[0] = det.transform_store().size();
 }
 }
+
 }
 
 
