@@ -1,3 +1,6 @@
 [submodule "detray"]
 	path = detray
 	url = git@github.com:JasmijnB/detray.git
+[submodule "vecmem"]
+	path = vecmem
+	url = git@github.com:JasmijnB/vecmem.git

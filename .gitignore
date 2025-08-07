@@ -1,5 +1,3 @@
-detray
-vecmem
 detray-build*
 detray-install*
 .direnv
@@ -9,4 +7,6 @@ Session.vim
 **/build
 *.log
 *.compile_summary
+*.swp
+_x
 
