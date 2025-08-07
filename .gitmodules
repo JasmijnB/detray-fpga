@@ -1,0 +1,3 @@
+[submodule "detray"]
+	path = detray
+	url = git@github.com:JasmijnB/detray.git
