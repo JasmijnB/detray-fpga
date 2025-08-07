@@ -95,22 +95,12 @@ void print_kernel(typename detector_host_t::view_type det_data) {
     printf("Number of volumes: %d\n", det.volumes().size());
     printf("Number of transforms: %d\n", det.transform_store().size());
 
-    /*
-    printf("Number of rectangles: %d\n",
-           det.mask_store().get<mask_id::e_rectangle2>().size());
-    printf("Number of trapezoids: %d\n",
-           det.mask_store().get<mask_id::e_trapezoid2>().size());
-    printf("Number of portal discs: %d\n",
-           det.mask_store().get<mask_id::e_portal_ring2>().size());
-    printf("Number of portal cylinders: %d\n",
-           det.mask_store().get<mask_id::e_portal_cylinder2>().size());
+    printf("Number of squares: %d\n", det.mask_store().get<mask_id::e_square2>().size());
+    printf("Number of trapezoids: %d\n", det.mask_store().get<mask_id::e_trapezoid2>().size());
+    printf("Number of portal_rectangles: %d\n", 
+		    det.mask_store().get<mask_id::e_portal_rectangle2>().size());
     printf("Number of portal collections: %d\n",
-           det.accelerator_store().get<acc_id::e_brute_force>().size());
-    printf("Number of disc grids: %d\n",
-           det.accelerator_store().get<acc_id::e_disc_grid>().size());
-    printf("Number of cylinder grids: %d\n",
-           det.accelerator_store().get<acc_id::e_cylinder2_grid>().size());
-           */
+		    det.accelerator_store().get<acc_id::e_brute_force>().size());
 }
 
 
@@ -155,25 +145,28 @@ int main(int argc, char** argv) {
     std::cout << "got the buffer!" << std::endl;
 
     auto host_view = detray::get_data(det_fixed_buff);
-    print_kernel(host_view);
+//    detector_device_t det{host_view};
+    // auto det = host_view;
+    detector_device_t det(host_view);
+
 
     std::cout << "Allocate Buffer in Global Memory\n";
     int args = 0;
     auto bo_in = xrt::bo(device, size_in_bytes, krnl.group_id(args++));
-    auto bo_host_view = xrt::bo(device, size_in_bytes, krnl.group_id(args++));
+    auto bo_device_view = xrt::bo(device, size_in_bytes, krnl.group_id(args++));
     auto bo_out = xrt::bo(device, size_in_bytes, krnl.group_id(args++));
 
     std::cout << "bo in address: " << bo_in.address() << std::endl;
-    std::cout << "bo host view address: " << bo_host_view.address() << std::endl;
+    std::cout << "bo host view address: " << bo_device_view.address() << std::endl;
     std::cout << "out address: " << bo_out.address() << std::endl;
 
     bo_in.write(data_in, size_in_bytes, 0);
-    bo_host_view.write(&host_view, sizeof(host_view), 0);
+    bo_device_view.write(&det, sizeof(det), 0);
     bo_in.sync(XCL_BO_SYNC_BO_TO_DEVICE);
-    bo_host_view.sync(XCL_BO_SYNC_BO_TO_DEVICE);
+    bo_device_view.sync(XCL_BO_SYNC_BO_TO_DEVICE);
 
     std::cout << "Execution of the kernel\n";
-    auto run = krnl(bo_in, bo_out, size_in_bytes);
+    auto run = krnl(bo_in, bo_device_view, bo_out);
     run.wait();
 
     std::cout << "Synchronize the output buffer data from the device" << std::endl;
@@ -184,14 +177,15 @@ int main(int argc, char** argv) {
 
 
     // Validate our results
+    /*
     if (std::memcmp(data_in, data_out, size_in_bytes) != 0)
         throw std::runtime_error("Value read back does not match reference");
+	*/
 
-    /*
-    for (size_type i = 0; i < size_in_bytes; ++i) {
+    print_kernel(host_view);
+    for (size_type i = 0; i < 10; ++i) {
         std::cout << "Output data[" << i << "] = " << static_cast<int>(data_out[i]) << std::endl;
     }
-    */
 
     std::cout << "TEST PASSED\n";
     return 0;

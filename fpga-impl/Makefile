@@ -60,7 +60,7 @@ XILINX_XRT := $(XILINX_XRT)
 
 INCLUDES := -I$(XILINX_XRT)/include -I${SRC_DIR} -isystem /home/jbookelm/fpga_detray/detray-install/include
 LDFLAGS := -L$(XILINX_XRT)/lib  -L${DETRAY_INSTALL}/lib64
-LDLIBS := -lxrt_coreutil -lOpenCL -lvecmem_core -lvecmem_hip
+LDLIBS := -lxrt_coreutil -lvecmem_core
 
 SRCS := $(HOST_FILE) 
 OBJS := $(SRCS:.cpp=.o)
@@ -76,11 +76,11 @@ $(HOST_OUTPUT): $(OBJS)
 # ===[ Other helpers]===
 .PHONY: run_hw_emu
 run_hw_emu: 
-	pushd ${WORK_DIR} && XCL_EMULATION_MODE=hw_emu ./host ./hw_emu/copy/kernel_main.xclbin && popd
+	pushd ${WORK_DIR} && XCL_EMULATION_MODE=hw_emu ./host ./hw_emu/kernel_main.xclbin && popd
 
 .PHONY: clean
 clean:
-	rm -rf ${WORK_DIR} *.log _x .Xil
+	rm -rf *.log _x .Xil
 
 KERNEL_C_ARGS := -DDETRAY_COMPILE_VITIS \
 				-DDETRAY_ALGEBRA_ARRAY \
