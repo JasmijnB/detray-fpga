@@ -4,3 +4,6 @@
 [submodule "vecmem"]
 	path = vecmem
 	url = git@github.com:JasmijnB/vecmem.git
+[submodule "algebra-plugins"]
+	path = algebra-plugins
+	url = git@github.com:JasmijnB/algebra-plugins.git
