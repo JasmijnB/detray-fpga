@@ -12,6 +12,7 @@ cmake -S detray -B "$build_folder" --preset default-fp32 \
     -DDETRAY_VECMEM_SOURCE="SOURCE_DIR;$LOCAL_VECMEM_SOURCE" \
 	-G Ninja \
 	-DDETRAY_BUILD_TUTORIALS=OFF \
+	-DDETRAY_BUILD_CLI_TOOLS=ON \
 	-DDETRAY_BUILD_TESTING=OFF \
 
 cmake --build "$build_folder" -j 8 --target install
