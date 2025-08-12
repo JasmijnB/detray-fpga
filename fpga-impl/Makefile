@@ -39,7 +39,7 @@ HW_EMU_XCLBIN := ${WORK_DIR}/hw_emu/${KERNEL_XCLBIN}
 
 all: csim csynth ;#cosim
 
-csynth ${SYNTH_OUTPUT}: ${SRC_DIR}/kernel.cpp ${SRC_DIR}/shared.h
+csynth ${SYNTH_OUTPUT}: ${SRC_DIR}/kernel.cpp 
 	v++ --compile  --mode hls  --platform=${PLATFORM} ${COMMON_OPTIONS} 
 
 csim: clean # clean before csim !
