@@ -26,7 +26,7 @@
 
 
 // Example include(s)
-#include "detray/tutorial/detector_metadata.hpp"
+#include "detray/detectors/toy_metadata.hpp"
 #include "detray/tutorial/square_surface_generator.hpp"
 #include "detray/tutorial/types.hpp"  // linear algebra types
 
@@ -47,46 +47,11 @@ typedef uint32_t size_type;
 typedef uint8_t data_t;
 #define DATA_SIZE 12
 
-using detector_host_t = detray::detector<detray::tutorial::my_metadata, detray::host_container_types>;
+using detector_host_t = detray::detector<detray::toy_metadata, detray::host_container_types>;
 using detector_device_t =
-    detray::detector<detray::tutorial::my_metadata, detray::device_container_types>;
+    detray::detector<detray::toy_metadata, detray::device_container_types>;
 using mask_id = typename detector_host_t::masks::id;
 using acc_id = typename detector_host_t::accel::id;
-
-auto build_detector(vecmem::host_memory_resource &host_mr) {
-    // The new detector type
-
-    // First, create an empty detector in in host memory to be filled
-    detector_host_t det{host_mr};
-
-    // Now fill the detector
-
-    // Get a generic volume builder first and decorate it later
-    detray::volume_builder<detector_host_t> vbuilder{detray::volume_id::e_cuboid};
-
-    // Fill some squares into the volume
-    using square_factory_t =
-        detray::surface_factory<detector_host_t, detray::tutorial::square2D>;
-    auto sq_factory = std::make_shared<square_factory_t>();
-
-    // Add some programmatically generated square surfaces
-    auto sq_generator =
-        std::make_shared<detray::tutorial::square_surface_generator>(
-            10, 10.f * detray::unit<detray::scalar>::mm);
-
-    // Add a portal box around the cuboid volume with a min distance of 'env'
-    constexpr auto env{0.1f * detray::unit<detray::scalar>::mm};
-    auto portal_generator =
-        std::make_shared<detray::cuboid_portal_generator<detector_host_t>>(env);
-
-    // Add surfaces to volume and add the volume to the detector
-    vbuilder.add_surfaces(sq_factory);
-    vbuilder.add_surfaces(sq_generator);
-    vbuilder.add_surfaces(portal_generator);
-
-    vbuilder.build(det);
-    return det;
-}
 
 void print_kernel(typename detector_host_t::view_type det_data) {
     // Setup of the device-side detector
@@ -94,15 +59,32 @@ void print_kernel(typename detector_host_t::view_type det_data) {
 
     printf("Number of volumes: %d\n", det.volumes().size());
     printf("Number of transforms: %d\n", det.transform_store().size());
-
-    printf("Number of squares: %d\n", det.mask_store().get<mask_id::e_square2>().size());
-    printf("Number of trapezoids: %d\n", det.mask_store().get<mask_id::e_trapezoid2>().size());
-    printf("Number of portal_rectangles: %d\n", 
-		    det.mask_store().get<mask_id::e_portal_rectangle2>().size());
+    printf("Number of rectangles: %d\n",
+           det.mask_store().get<mask_id::e_rectangle2>().size());
+    printf("Number of trapezoids: %d\n",
+           det.mask_store().get<mask_id::e_trapezoid2>().size());
+    printf("Number of portal discs: %d\n",
+           det.mask_store().get<mask_id::e_portal_ring2>().size());
+    printf("Number of portal cylinders: %d\n",
+           det.mask_store().get<mask_id::e_portal_cylinder2>().size());
     printf("Number of portal collections: %d\n",
-		    det.accelerator_store().get<acc_id::e_brute_force>().size());
+           det.accelerator_store().get<acc_id::e_brute_force>().size());
+    printf("Number of disc grids: %d\n",
+           det.accelerator_store().get<acc_id::e_disc_grid>().size());
+    printf("Number of cylinder grids: %d\n",
+           det.accelerator_store().get<acc_id::e_cylinder2_grid>().size());
 }
 
+void write_detector_to_file(const detector_host_t &det,
+                            const typename detector_host_t::name_map &names) {
+    auto writer_cfg = detray::io::detector_writer_config{}
+                          .format(detray::io::format::json)
+                          .replace_files(true);
+
+    // Takes the detector 'det', a volume name map (only entry here the
+    // detector name) and the writer config
+    detray::io::write_detector(det, names, writer_cfg);
+}
 
 int main(int argc, char** argv) {
 	// parse input arguments
@@ -136,8 +118,15 @@ int main(int argc, char** argv) {
 
     vecmem::host_memory_resource host_mr;
 
-    auto det_mng = build_detector(host_mr);
-//    const auto [det_mng, names] = detray::build_toy_detector(host_mr);
+    detray::toy_det_config toy_cfg{};
+    // Number of barrel layers (0 - 4)
+    toy_cfg.n_brl_layers(1u);
+    // Number of endcap layers on either side (0 - 7)
+    toy_cfg.n_edc_layers(0u);
+
+    const auto [det_mng, names] = detray::build_toy_detector(host_mr, toy_cfg);
+    write_detector_to_file(det_mng, names);
+
     vecmem::vitis::device_memory_resource dev_mr(data_in, size_in_bytes);
     vecmem::vitis::copy vitis_cpy(data_in);
     // load the detector data into the device memory as first buffer

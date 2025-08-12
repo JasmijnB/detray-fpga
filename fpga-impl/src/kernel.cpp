@@ -1,12 +1,12 @@
 #include <cstdint>
 #include "detray/core/detector.hpp"
-#include "detray/tutorial/detector_metadata.hpp"
+#include "detray/detectors/toy_metadata.hpp"
 
 namespace detray {
 // Detector
-using detector_host_t = detector<tutorial::my_metadata, host_container_types>;
+using detector_host_t = detector<toy_metadata, host_container_types>;
 using detector_device_t =
-    detector<tutorial::my_metadata, device_container_types>;
+    detector<toy_metadata, device_container_types>;
 
 using mask_id = typename detector_host_t::masks::id;
 using acc_id = typename detector_host_t::accel::id;
@@ -19,15 +19,17 @@ void kernel_main(uint8_t * data, uint8_t * detector_data, uint8_t * n_transforms
         local_detector_data[i] = detector_data[i];
     }
     const detector_device_t& det = *reinterpret_cast<detector_device_t*>(local_detector_data);
-    n_transforms[0] = det.transform_store().size();
-    n_transforms[1] = det.volumes().size();
-    n_transforms[2] = det.mask_store().get<mask_id::e_square2>().size();
+
+    n_transforms[0] = det.volumes().size();
+    n_transforms[1] = det.transform_store().size();
+    n_transforms[2] = det.mask_store().get<mask_id::e_rectangle2>().size();
     n_transforms[3] = det.mask_store().get<mask_id::e_trapezoid2>().size();
-    n_transforms[4] = det.mask_store().get<mask_id::e_portal_rectangle2>().size();
-    n_transforms[5] = det.accelerator_store().get<acc_id::e_brute_force>().size();
+    n_transforms[4] = det.mask_store().get<mask_id::e_portal_ring2>().size();
+    n_transforms[5] = det.mask_store().get<mask_id::e_portal_cylinder2>().size();
+    n_transforms[6] = det.accelerator_store().get<acc_id::e_brute_force>().size();
+    n_transforms[7] = det.accelerator_store().get<acc_id::e_disc_grid>().size();
+    n_transforms[8] = det.accelerator_store().get<acc_id::e_cylinder2_grid>().size();
 }
 }
 }
-
-
 
