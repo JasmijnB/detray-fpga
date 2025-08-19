@@ -65,19 +65,15 @@ LDLIBS := -lxrt_coreutil -lvecmem_core
 SRCS := $(HOST_FILE) 
 OBJS := $(SRCS:.cpp=.o)
 
-host: $(HOST_OUTPUT)
-
-$(HOST_OUTPUT): $(OBJS)
-		$(CXX) $(CXXFLAGS) $(INCLUDES) -o $@ $^ $(LDFLAGS) $(LDLIBS)
-
-%.o: %.cpp
-		$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
 
 # ===[ Other helpers]===
 .PHONY: run_hw_emu
 run_hw_emu: 
 	pushd ${WORK_DIR} && XCL_EMULATION_MODE=hw_emu ./host ./hw_emu/kernel_main.xclbin && popd
 
+.PHONY: run_sw_emu
+run_sw_emu: 
+	pushd ${WORK_DIR} && XCL_EMULATION_MODE=sw_emu ./host ./sw_emu/kernel_main.xclbin && popd
 .PHONY: clean
 clean:
 	rm -rf *.log _x .Xil
@@ -89,12 +85,18 @@ KERNEL_C_ARGS := -DDETRAY_COMPILE_VITIS \
 				-I/home/jbookelm/fpga_detray/detray-install-vitis/include \
 
 .PHONY: kernel
-kernel: src/kernel.cpp
+sw_emu ./build/sw_emu/kernel.xo: src/kernel.cpp
 	v++ \
+		-t sw_emu \
 		$(KERNEL_C_ARGS) \
 		-k kernel_main \
 		--platform ${PLATFORM} \
-		src/kernel.cpp -o kernel.xo
+		src/kernel.cpp -o ./build/sw_emu/kernel.xo
+
+link_sw_emu: ./build/sw_emu/kernel.xo
+	v++ -l -t sw_emu --config="${LINK_CONFIG}" \
+	--platform="${PLATFORM}" \
+	./build/sw_emu/kernel.xo -o ./build/sw_emu/${KERNEL_XCLBIN}
 
 kernel_as_c:  src/kernel.cpp
 	g++ $(KERNEL_C_ARGS) src/kernel.cpp -o kernel_as_c
