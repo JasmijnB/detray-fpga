@@ -44,6 +44,7 @@
 #include "xrt/xrt_kernel.h"
 
 typedef uint32_t size_type;
+typedef double out_t;
 typedef uint8_t data_t;
 #define DATA_SIZE 12
 
@@ -73,6 +74,18 @@ void print_kernel(typename detector_host_t::view_type det_data) {
            det.accelerator_store().get<acc_id::e_disc_grid>().size());
     printf("Number of cylinder grids: %d\n",
            det.accelerator_store().get<acc_id::e_cylinder2_grid>().size());
+
+    for (unsigned int i = 0; i < 10; i++) {
+        for (unsigned int j = 0; j < 3; j++) {
+            double value = det.transform_store()[i].point_to_global({0., 0., 0.})[j];
+            std::cout 
+                << "ptg at index " << i 
+                << ": coordinate " << j 
+                << ": " << value << " " 
+                << unsigned(static_cast<uint8_t>(value)) << ";" 
+                << std::endl;
+        }
+    }
 }
 
 void write_detector_to_file(const detector_host_t &det,
@@ -112,8 +125,10 @@ int main(int argc, char** argv) {
     std::cout << "Allocate Buffer in Global Memory\n";
     // randomly choose a big number
     constexpr std::uint32_t size_in_bytes = 1024 * 1024;
-    std::uint8_t data_in[size_in_bytes];
-    std::uint8_t data_out[size_in_bytes];
+    constexpr std::uint32_t out_size = 1024;
+    constexpr std::uint32_t out_size_in_bytes = out_size * sizeof(out_t);
+    std::uint8_t * data_in = vecmem::memory_buffer;
+    out_t data_out[out_size];
 
 
     vecmem::host_memory_resource host_mr;
@@ -143,16 +158,23 @@ int main(int argc, char** argv) {
     int args = 0;
     auto bo_in = xrt::bo(device, size_in_bytes, krnl.group_id(args++));
     auto bo_device_view = xrt::bo(device, size_in_bytes, krnl.group_id(args++));
-    auto bo_out = xrt::bo(device, size_in_bytes, krnl.group_id(args++));
+    auto bo_out = xrt::bo(device, out_size_in_bytes, krnl.group_id(args++));
 
     std::cout << "bo in address: " << bo_in.address() << std::endl;
     std::cout << "bo host view address: " << bo_device_view.address() << std::endl;
     std::cout << "out address: " << bo_out.address() << std::endl;
 
     bo_in.write(data_in, size_in_bytes, 0);
-    bo_device_view.write(&det, sizeof(det), 0);
     bo_in.sync(XCL_BO_SYNC_BO_TO_DEVICE);
+
+    bo_device_view.write(&det, sizeof(det), 0);
     bo_device_view.sync(XCL_BO_SYNC_BO_TO_DEVICE);
+
+
+    for (size_type i = 0; i < 50; ++i) {
+        std::cout << "Input data[" << i << "] = " << static_cast<int>(data_in[i]) << std::endl;
+    }
+    print_kernel(host_view);
 
     std::cout << "Execution of the kernel\n";
     auto run = krnl(bo_in, bo_device_view, bo_out);
@@ -171,9 +193,8 @@ int main(int argc, char** argv) {
         throw std::runtime_error("Value read back does not match reference");
 	*/
 
-    print_kernel(host_view);
-    for (size_type i = 0; i < 10; ++i) {
-        std::cout << "Output data[" << i << "] = " << static_cast<int>(data_out[i]) << std::endl;
+    for (size_type i = 0; i < 40; ++i) {
+        std::cout << "Output data[" << i << "] = " << data_out[i] << std::endl;
     }
 
     std::cout << "TEST PASSED\n";
