@@ -75,6 +75,8 @@ add_custom_command(
     COMMENT "Synthesizing the kernel source"
 )
 
+add_custom_target(csynth DEPENDS ${SYNTH_OUTPUT})
+
 add_custom_command(
     OUTPUT ${HW_EMU_XCLBIN}
     COMMAND v++ 
